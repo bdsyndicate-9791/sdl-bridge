@@ -1,93 +1,224 @@
-# SDLBridge
+# 📚 Documentación Técnica: SDL Bridge
 
+> **Versión 1.0**  
+> *Un puente seguro entre DBAs y desarrolladores en entornos WordPress*
 
+---
 
-## Getting started
+## 🎯 Propósito
 
-To make it easy for you to get started with GitLab, here's a list of recommended next steps.
+Permitir a los **DBAs** escribir consultas SQL complejas en archivos externos (con soporte para variables), y a los **desarrolladores** ejecutarlas de forma segura en WordPress, **sin acoplamiento directo**, **sin inyección SQL**, y con **máxima flexibilidad de despliegue**.
 
-Already a pro? Just edit this README.md and make it your own. Want to make it easy? [Use the template at the bottom](#editing-this-readme)!
+SDL Bridge actúa como capa de abstracción que:
+- Lee archivos `.sdl` escritos por DBAs.
+- Valida y sanitiza parámetros según tipos definidos.
+- Genera SQL seguro compatible con `$wpdb`.
+- Ejecuta consultas y devuelve resultados estructurados.
 
-## Add your files
+---
 
-- [ ] [Create](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#create-a-file) or [upload](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#upload-a-file) files
-- [ ] [Add files using the command line](https://docs.gitlab.com/topics/git/add_files/#add-files-to-a-git-repository) or push an existing Git repository with the following command:
+## 🧱 Arquitectura General
 
 ```
-cd existing_repo
-git remote add origin https://gitlab.com/bytedogssyndicate/sdl-bridge.git
-git branch -M main
-git push -uf origin main
+sdl-bridge/
+├── src/                          # Núcleo del motor (PSR-4)
+│   ├── Types/                    # Sistema de tipos extensible
+│   ├── TypeRegistry.php          # Registro central de tipos
+│   ├── SDLParser.php             # Analiza archivos .sdl
+│   ├── SDLCompiler.php           # Compila SDL → SQL seguro
+│   ├── ReportEngine.php          # Punto de entrada
+│   └── exceptions/               # Excepciones del dominio
+├── bootstrap.php                 # Autoloader y alias global
+└── (informes .sdl van fuera de esta carpeta)
 ```
 
-## Integrate with your tools
+---
 
-- [ ] [Set up project integrations](https://gitlab.com/bytedogssyndicate/sdl-bridge/-/settings/integrations)
+## 🔌 Integración con WordPress
 
-## Collaborate with your team
+### 1. Incluir la librería
+```php
+// En tu plugin o tema
+require_once WP_PLUGIN_DIR . '/sdl-bridge/bootstrap.php';
+```
 
-- [ ] [Invite team members and collaborators](https://docs.gitlab.com/ee/user/project/members/)
-- [ ] [Create a new merge request](https://docs.gitlab.com/ee/user/project/merge_requests/creating_merge_requests.html)
-- [ ] [Automatically close issues from merge requests](https://docs.gitlab.com/ee/user/project/issues/managing_issues.html#closing-issues-automatically)
-- [ ] [Enable merge request approvals](https://docs.gitlab.com/ee/user/project/merge_requests/approvals/)
-- [ ] [Set auto-merge](https://docs.gitlab.com/user/project/merge_requests/auto_merge/)
+### 2. Ejecutar un informe
+```php
+$results = SDLBridge::report('abandoned_cart')
+    ->withParams([
+        'start' => '2024-01-01 00:00:00',
+        'end'   => '2024-02-01 00:00:00'
+    ])
+    ->execute();
 
-## Test and Deploy
+// $results->rows: array de resultados
+// $results->sql: consulta SQL generada (para debugging)
+```
 
-Use the built-in continuous integration in GitLab.
+> ✅ El alias global `SDLBridge` está disponible tras incluir `bootstrap.php`.
 
-- [ ] [Get started with GitLab CI/CD](https://docs.gitlab.com/ee/ci/quick_start/)
-- [ ] [Analyze your code for known vulnerabilities with Static Application Security Testing (SAST)](https://docs.gitlab.com/ee/user/application_security/sast/)
-- [ ] [Deploy to Kubernetes, Amazon EC2, or Amazon ECS using Auto Deploy](https://docs.gitlab.com/ee/topics/autodevops/requirements.html)
-- [ ] [Use pull-based deployments for improved Kubernetes management](https://docs.gitlab.com/ee/user/clusters/agent/)
-- [ ] [Set up protected environments](https://docs.gitlab.com/ee/ci/environments/protected_environments.html)
+---
 
-***
+## 📂 Ubicación de Informes (`.sdl`)
 
-# Editing this README
+El sistema busca los informes en este orden de prioridad:
 
-When you're ready to make this README your own, just edit this file and use the handy template below (or feel free to structure it however you want - this is just a starting point!). Thanks to [makeareadme.com](https://www.makeareadme.com/) for this template.
+### 1. **Configuración explícita** (recomendado para producción)
+```php
+// En wp-config.php (fuera de DOCUMENT_ROOT)
+define('SDL_BRIDGE_REPORTS_DIR', '/ruta/segura/fuera/de/la/web/reports');
+```
 
-## Suggestions for a good README
+### 2. **Carpeta en el home del usuario** (webhosts compartidos)
+```
+/home/tuusuario/sdl-bridge/reports/
+```
+> ✅ Fuera de `public_html/`, `htdocs/`, etc.
 
-Every project is different, so consider which of these sections apply to yours. The sections used in the template are suggestions for most open source projects. Also keep in mind that while a README can be too long and detailed, too long is better than too short. If you think your README is too long, consider utilizing another form of documentation rather than cutting out information.
+### 3. **Dentro del plugin** (solo desarrollo)
+```
+/wp-content/plugins/tu-plugin/reports/
+```
+> ⚠️ Se añade `.htaccess` con `Deny from all`, pero no es 100% seguro.
 
-## Name
-Choose a self-explaining name for your project.
+---
 
-## Description
-Let people know what your project can do specifically. Provide context and add a link to any reference visitors might be unfamiliar with. A list of Features or a Background subsection can also be added here. If there are alternatives to your project, this is a good place to list differentiating factors.
+## 🧪 Formato de Archivo: `.sdl`
 
-## Badges
-On some READMEs, you may see small images that convey metadata, such as whether or not all the tests are passing for the project. You can use Shields to add some to your README. Many services also have instructions for adding a badge.
+- Es un **superconjunto de SQL estándar**.
+- Soporta **variables** con sintaxis: `{{nombre:tipo}}`.
+- Si no hay variables, se trata como SQL puro.
 
-## Visuals
-Depending on what you are making, it can be a good idea to include screenshots or even a video (you'll frequently see GIFs rather than actual videos). Tools like ttygif can help, but check out Asciinema for a more sophisticated method.
+### Ejemplo
+```sql
+SELECT product_id, SUM(qty) AS total
+FROM wp_wtf_session_events
+WHERE event_timestamp >= {{start:datetime}}
+  AND event_timestamp < {{end:datetime}}
+  AND store_id = {{store_id:int}}
+GROUP BY product_id
+```
 
-## Installation
-Within a particular ecosystem, there may be a common way of installing things, such as using Yarn, NuGet, or Homebrew. However, consider the possibility that whoever is reading your README is a novice and would like more guidance. Listing specific steps helps remove ambiguity and gets people to using your project as quickly as possible. If it only runs in a specific context like a particular programming language version or operating system or has dependencies that have to be installed manually, also add a Requirements subsection.
+---
 
-## Usage
-Use examples liberally, and show the expected output if you can. It's helpful to have inline the smallest example of usage that you can demonstrate, while providing links to more sophisticated examples if they are too long to reasonably include in the README.
+## 🔐 Sistema de Tipos
 
-## Support
-Tell people where they can go to for help. It can be any combination of an issue tracker, a chat room, an email address, etc.
+### Tipos Base Incluidos
+| Tipo        | Validación                              | Ejemplo de uso       |
+|-------------|------------------------------------------|----------------------|
+| `string`    | Escapa con `$wpdb->_real_escape()`       | `'O\'Reilly'`        |
+| `int`       | Solo enteros válidos                     | `42`                 |
+| `float`     | Números decimales                        | `3.1415`             |
+| `bool`      | `1` / `0`                                | `1`                  |
+| `date`      | Formato `YYYY-MM-DD`                     | `'2024-05-01'`       |
+| `datetime`  | Formato `YYYY-MM-DD HH:MM:SS`            | `'2024-05-01 12:00:00'` |
+| `array`     | Array → `(val1,val2,...)`                | `(1,2,3)`            |
 
-## Roadmap
-If you have ideas for releases in the future, it is a good idea to list them in the README.
+### Extensibilidad
+Para añadir un nuevo tipo (ej: `uuid`):
 
-## Contributing
-State if you are open to contributions and what your requirements are for accepting them.
+```php
+// 1. Crear clase
+class UuidType extends BaseType { ... }
 
-For people who want to make changes to your project, it's helpful to have some documentation on how to get started. Perhaps there is a script that they should run or some environment variables that they need to set. Make these steps explicit. These instructions could also be useful to your future self.
+// 2. Registrar
+$engine = new \SDLBridge\ReportEngine($reportsDir);
+$engine->registerType('uuid', new UuidType());
 
-You can also document commands to lint the code or run tests. These steps help to ensure high code quality and reduce the likelihood that the changes inadvertently break something. Having instructions for running tests is especially helpful if it requires external setup, such as starting a Selenium server for testing in a browser.
+// 3. Usar en SDL
+// WHERE user_id = {{user_id:uuid}}
+```
 
-## Authors and acknowledgment
-Show your appreciation to those who have contributed to the project.
+---
 
-## License
-For open source projects, say how it is licensed.
+## 🛡️ Seguridad
 
-## Project status
-If you have run out of energy or time for your project, put a note at the top of the README saying that development has slowed down or stopped completely. Someone may choose to fork your project or volunteer to step in as a maintainer or owner, allowing your project to keep going. You can also make an explicit request for maintainers.
+- **Ningún valor entra sin validación y sanitización**.
+- **Todos los tipos usan mecanismos de WordPress** (`$wpdb->_real_escape()`).
+- **Variables de tipo `identifier` (nombres de tabla/columna) están prohibidas** por defecto (riesgo alto).
+- **Los informes deben estar fuera de `DOCUMENT_ROOT`** (recomendado).
+
+---
+
+## 🧩 Excepciones del Sistema
+
+| Excepción                     | Cuándo se lanza                                  |
+|------------------------------|--------------------------------------------------|
+| `SDLException`               | Error genérico en SDL (variables faltantes, etc.) |
+| `TypeNotFoundException`       | Tipo no registrado (ej: `{{fecha:fechota}}`)     |
+
+> ✅ Ambas extienden `\RuntimeException` y pertenecen al namespace `SDLBridge\exceptions`.
+
+---
+
+## 📦 Autoloader
+
+- **PSR-4 compatible**.
+- Usa `__DIR__` de `bootstrap.php` como raíz.
+- **No requiere Composer**.
+- **Resistente a inclusiones desde cualquier contexto**.
+
+---
+
+## 🧪 Ejemplo Completo
+
+### Archivo: `~/sdl-bridge/reports/abandoned_cart.sdl`
+```sql
+WITH abandoned_sessions AS (
+    SELECT DISTINCT session_header_id
+    FROM wp_wtf_session_events
+    WHERE event_type = 'add_to_cart'
+      AND event_timestamp >= {{start:datetime}}
+      AND event_timestamp < {{end:datetime}}
+      AND session_header_id NOT IN (
+          SELECT DISTINCT session_header_id
+          FROM wp_wtf_session_events
+          WHERE event_type = 'checkout_initialized'
+            AND event_timestamp >= {{start:datetime}}
+            AND event_timestamp < {{end:datetime}}
+      )
+),
+-- ... resto de la consulta (igual que en el ejemplo original)
+```
+
+### Código PHP
+```php
+$results = SDLBridge::report('abandoned_cart')
+    ->withParams([
+        'start' => '2024-05-01 00:00:00',
+        'end'   => '2024-06-01 00:00:00'
+    ])
+    ->execute();
+
+foreach ($results->rows as $row) {
+    echo $row['product_name'] . ": " . $row['veces_agregado_en_carritos_abandonados'] . "\n";
+}
+```
+
+---
+
+## 📌 Requisitos
+
+- **PHP 7.4+**
+- **WordPress 5.0+**
+- **MySQL 5.6+** (por funciones como `COALESCE`, `NULLIF`)
+
+---
+
+## 🧭 Filosofía de Diseño
+
+1. **Desacoplamiento**: DBAs escriben SDL, desarrolladores solo llaman.
+2. **Seguridad primero**: sanitización por tipo, no por esperanza.
+3. **Extensibilidad sin tocar el core**: nuevos tipos = nuevas clases.
+4. **Flexibilidad de despliegue**: desde webhosts compartidos hasta datacenters blindados.
+5. **Transparencia**: siempre se puede ver la SQL generada.
+
+---
+
+## 📝 Licencia
+
+> SDL Bridge es una obra de ingeniería abierta.  
+> Puedes usarlo, modificarlo y distribuirlo,  
+> siempre que **respetes el espíritu de claridad y responsabilidad** con el que fue creado.
+
+---
