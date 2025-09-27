@@ -222,3 +222,4 @@ foreach ($results->rows as $row) {
 > siempre que **respetes el espíritu de claridad y responsabilidad** con el que fue creado.
 
 ---
+Consulta la [documentación extendida](doc/SDLBridge-avanzado.md) para más detalles.
