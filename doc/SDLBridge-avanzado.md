@@ -53,7 +53,7 @@ SDL Bridge no impone estructura. Permite que tú la definas. Puedes organizar tu
 
 ## Página 3: Seguridad, trazabilidad y extensión real
 
-Uno de los pilares de SDL Bridge es la seguridad. Al validar cada parámetro por tipo antes de interpolarlo en la consulta, se elimina el riesgo de inyección SQL por diseño. No hay concatenaciones, no hay SQL dinámico, no hay interpolación directa. El motor utiliza `$wpdb->prepare()` internamente, pero con control total sobre cada paso del proceso.
+Uno de los pilares de SDL Bridge es la seguridad. Al validar cada parámetro por tipo antes de interpolarlo en la consulta, se elimina el riesgo de inyección SQL por diseño. No hay concatenaciones, no hay SQL dinámico, no hay interpolación directa. El motor no utiliza `$wpdb->prepare()` internamente.
 
 La trazabilidad es otro aspecto clave. Cada archivo `.sdl` puede ser versionado, auditado, documentado. Puedes saber qué consulta se ejecutó, con qué parámetros, en qué contexto, en qué momento. Esto es esencial para entornos que manejan datos sensibles, como comercio electrónico, sistemas institucionales o plataformas SaaS. Además, el motor permite registrar cada ejecución, lo que facilita la generación de métricas, reportes y alertas.
 
