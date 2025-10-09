@@ -29,12 +29,39 @@ class ReportEngine
     private ?array $params = null;
     private ?string $reportName = null;
 
+    
+    
     public function __construct(string $reportsDir = '')
     {
-        if ($reportsDir === '') {
-            $reportsDir = WP_CONTENT_DIR . '/SDLBridge/reports';
+        // Resolución de ruta
+        if ($reportsDir !== '') {
+            $this->reportsDir = rtrim($reportsDir, '/');
+        } elseif (defined('SDL_REPORTS_PATH') && is_string(SDL_REPORTS_PATH)) {
+            $this->reportsDir = rtrim(SDL_REPORTS_PATH, '/');
+        } else {
+            if (!defined('WP_CONTENT_DIR')) {
+                throw new \RuntimeException('WP_CONTENT_DIR no está definido. Asegúrate de que WordPress esté cargado.');
+            }
+            $this->reportsDir = rtrim(WP_CONTENT_DIR . '/SDLBridge/reports', '/');
         }
-        $this->reportsDir = rtrim($reportsDir, '/');
+
+        // Validación y alerta (solo en admin)
+        if (!is_dir($this->reportsDir)) {
+            static $noticeShown = false;
+            if (!$noticeShown) {
+                $dir = function_exists('esc_html') 
+                    ? esc_html($this->reportsDir) 
+                    : htmlspecialchars($this->reportsDir, ENT_QUOTES, 'UTF-8');
+
+                echo '<div class="notice notice-error is-dismissible">
+                    <p><strong>SDLBridge:</strong> No se encontró el directorio de reportes: <code>' . $dir . '</code></p>
+                    <p>Verifica que los archivos de reporte estén instalados correctamente.</p>
+                </div>';
+                $noticeShown = true;
+            }
+            die;
+        }
+
         $this->typeRegistry = new TypeRegistry();
     }
 
@@ -66,15 +93,20 @@ class ReportEngine
         }
 
         $content = file_get_contents($filePath);
+        if ($content === false) {
+            throw new \RuntimeException("No se pudo leer el archivo del reporte: {$filePath}");
+        }
+
         $parser = new SDLParser();
         $parsed = $parser->parse($content);
 
         $compiler = new SDLCompiler($this->typeRegistry);
         $finalSql = $compiler->compile(
-            $parsed['sql_template'],
-            $parsed['variables'],
+            $parsed['sql_template'] ?? '',
+            $parsed['variables'] ?? [],
             $this->params
         );
+        
 
         global $wpdb;
         $results = $wpdb->get_results($finalSql, ARRAY_A);
@@ -82,7 +114,7 @@ class ReportEngine
         return (object)[
             'rows' => $results,
             'sql' => $finalSql,
-            'metadata' => $parsed['metadata']
+            'metadata' => $parsed['metadata'] ?? []
         ];
     }
 
