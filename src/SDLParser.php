@@ -63,7 +63,8 @@ class SDLParser
             $name = $match[1];
             $type = $match[2];
             if (isset($vars[$name])) {
-                throw new SDLException("Variable '$name' duplicada.");
+                // comentamos para permitir usar variables mas de una vez
+//                throw new SDLException("Variable '$name' duplicada.");
             }
             $vars[$name] = $type;
         }
