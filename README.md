@@ -1,5 +1,15 @@
 # 📚 Documentación Técnica: SDL Bridge
 
+## **Structured Data Language**  
+*(Lenguaje de Datos Estructurado)*
+
+> Porque SDL Bridge no es solo SQL…  
+> es **SQL con estructura semántica**:  
+> - Variables tipadas (`{{fecha:datetime}}`)  
+> - Contratos explícitos entre DBA y sistema  
+> - Abstracción segura sobre la base de datos
+
+
 > **Versión 1.0**  
 > *Un puente seguro entre DBAs y desarrolladores en entornos WordPress*
 
